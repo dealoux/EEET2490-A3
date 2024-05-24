@@ -39,4 +39,8 @@ void setStopBits(char *args);
 void setParity(char *args);
 void setHandshaking(char *args);
 
+// screen commands
+void showImage(char *args);
+void showVideo(char *args);
+void showTeamInfo(char *args);
 #endif

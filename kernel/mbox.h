@@ -50,6 +50,13 @@ extern volatile unsigned int mBuf[36];
 
 #define MBOX_TAG_LAST 0
 
+#define MBOX_TAG_SETVIRTWH 0x48004
+#define MBOX_TAG_SETVIRTOFF 0x48009
+#define MBOX_TAG_SETDEPTH 0x48005
+#define MBOX_TAG_SETPXLORDR 0x48006
+#define MBOX_TAG_GETFB 0x40001
+#define MBOX_TAG_GETPITCH 0x40008
+
 /* Function Prototypes */
 int mbox_call(unsigned int buffer_addr, unsigned char channel);
 void mbox_buffer_setup(unsigned int buffer_addr, unsigned int tag_identifier, unsigned int **res_data, unsigned int res_length, unsigned int req_length, ...);

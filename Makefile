@@ -1,40 +1,30 @@
-#--------------------------------------Makefile-------------------------------------
+SRC_DIR = ./kernel
+BUILD_DIR = ./build
+UART_DIR = ./uart
+CLI_DIR = ./cli
 
-CFILES = $(wildcard ./kernel/*.c)
-OFILES = $(CFILES:./kernel/%.c=./build/%.o)
-GCCFLAGS = -Wall -O2 -ffreestanding -nostdinc -nostdlib
+CFILES := $(shell find $(SRC_DIR) -name '*.c') $(shell find $(UART_DIR) -name '*.c') $(shell find $(CLI_DIR) -name '*.c')
+OFILES := $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(CFILES)))
 
-uart1: clean uart1_build printf_build cli_build command_build kernel8.img run1
-all: uart1
+GCCFLAGS = -Wall -O2 -ffreestanding -nostdinc -nostdlib -nostartfiles
 
-cli_build: ./cli/cli.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c ./cli/cli.c -o ./build/cli.o
+all: clean kernel8.img run
 
-command_build: ./cli/command.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c ./cli/command.c -o ./build/command.o
-
-printf_build: ./cli/printf.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c ./cli/printf.c -o ./build/printf.o
-
-uart1_build: ./uart/uart1.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c ./uart/uart1.c -o ./build/uart.o
-
-./build/boot.o: ./kernel/boot.S
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c ./kernel/boot.S -o ./build/boot.o
-
-./build/%.o: ./kernel/%.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
 
-kernel8.img: ./build/boot.o ./build/uart.o ./build/printf.o ./build/cli.o ./build/command.o $(OFILES)
-	aarch64-linux-gnu-ld -nostdlib $^ -T ./kernel/link.ld -o ./build/kernel8.elf
-	aarch64-linux-gnu-objcopy -O binary ./build/kernel8.elf kernel8.img
+$(BUILD_DIR)/%.o: $(UART_DIR)/%.c
+	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(CLI_DIR)/%.c
+	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+
+kernel8.img: $(OFILES)
+	aarch64-linux-gnu-ld -nostdlib $(OFILES) -T $(SRC_DIR)/link.ld -o $(BUILD_DIR)/kernel8.elf
+	aarch64-linux-gnu-objcopy -O binary $(BUILD_DIR)/kernel8.elf kernel8.img
 
 clean:
-	rm -rf ./build/kernel8.elf ./build/*.o *.img
+	rm -rf $(BUILD_DIR)/*.o $(BUILD_DIR)/kernel8.elf *.img
 
-# Run emulation with QEMU
-run1: 
+run:
 	qemu-system-aarch64 -M raspi3b -kernel kernel8.img -serial null -serial stdio
-
-run0: 
-	qemu-system-aarch64 -M raspi3b -kernel kernel8.img -serial stdio
