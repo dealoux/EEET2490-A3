@@ -1,3 +1,4 @@
+// -----------------------------------mbox.c -------------------------------------
 #include "mbox.h"
 #include "gpio.h"
 #include "../uart/uart1.h"
@@ -6,101 +7,114 @@
 #include "../gcclib/stdint.h"
 #include "../gcclib/stdarg.h"
 
-volatile unsigned int mBuf[36];
+/* Mailbox Data Buffer (each element is 32-bit)*/
+/*
+ * The keyword attribute allows you to specify special attributes
+ *
+ * The aligned(N) attribute aligns the current data item on an address
+ * which is a multiple of N, by inserting padding bytes before the data item
+ *
+ * __attribute__((aligned(16)) : allocate the variable on a 16-byte boundary.
+ * *
+ * We must ensure that our our buffer is located at a 16 byte aligned address,
+ * so only the high 28 bits contain the address
+ * (last 4 bits is ZERO due to 16 byte alignment)
+ *
+ */
+volatile unsigned int __attribute__((aligned(16))) mBuf[36];
 
-// Define mailbox buffer as per the alignment requirements
-volatile unsigned int __attribute__((aligned(16))) mbox_buffer[36];
-
-// Function to read from the mailbox
+/**
+ * Read from the mailbox
+ */
 uint32_t mailbox_read(unsigned char channel) {
-    uint32_t res = MBOX0_READ;
-
-    while((res & 0xF) != channel){
-      // Wait for mailbox to be non-empty
-      while(MBOX0_STATUS & MBOX_EMPTY) {
-        asm volatile("nop");
-      }
-      // Read the message
-      res = MBOX0_READ;
-    }
+    // Receiving message is buffer_addr & channel number
+    uint32_t res;
+    // Make sure that the message is from the right channel
+    do {
+        // Make sure there is mail to receive
+        do {
+            asm volatile("nop");
+        } while (MBOX0_STATUS & MBOX_EMPTY);
+        // Get the message
+        res = MBOX0_READ;
+    } while ((res & 0xF) != channel);
 
     return res;
 }
 
-// Function to write to the mailbox
+/**
+ * Write to the mailbox
+ */
 void mailbox_send(uint32_t msg, unsigned char channel) {
-  // Ensure that the message conforms to the mailbox format
-  msg &= ~0xF;
-  msg |= channel & 0xF;
-
-  // Wait for the mailbox to be non-full
-  while (MBOX1_STATUS & MBOX_FULL) {
-    asm volatile("nop");
-  }
-  MBOX1_WRITE = msg;
+    // Sending message is buffer_addr & channel number
+    //  Make sure you can send mail
+    do {
+        asm volatile("nop");
+    } while (MBOX1_STATUS & MBOX_FULL);
+    // send the message
+    MBOX1_WRITE = msg;
 }
 
-// Function to make a mailbox call
+/**
+ * Make a mailbox call. Returns 0 on failure, non-zero on success
+ */
 int mbox_call(unsigned int buffer_addr, unsigned char channel) {
-  unsigned int msg = (buffer_addr & ~0xF) | (channel & 0xF);
-  mailbox_send(msg, channel);
+    // Prepare Data (address of Message Buffer)
+    unsigned int msg = (buffer_addr & ~0xF) | (channel & 0xF);
+    mailbox_send(msg, channel);
 
-  // Wait for the response
-  if(msg == mailbox_read(channel)){
-    return mbox_buffer[1] == MBOX_RESPONSE;
-  }
-  uart_puts("Mailbox call failed\n");
-  return 0;
+    /* now wait for the response */
+    /* is it a response to our message (same address)? */
+    if (msg == mailbox_read(channel)) {
+        /* is it a valid successful response (Response Code) ? */
+        if (mBuf[1] == MBOX_RESPONSE)
+
+            return (mBuf[1] == MBOX_RESPONSE);
+    }
+    uart_puts("Got false response \n");
+    return 0;
 }
 
-// Helper functions for mailbox buffer setup
-void mbox_buffer_init(volatile unsigned int *mbox, unsigned int tag, unsigned int buffer_size) {
-  mbox[0] = buffer_size;  // Overall buffer size
-  mbox[1] = MBOX_REQUEST; // This is a request message
-  mbox[2] = tag;          // Specific tag
-  mbox[3] = buffer_size - 3 * sizeof(unsigned int); // Size of the data buffer
-  mbox[4] = 0;            // Request code (0 for request, set by the GPU/VPU on response)
-}
+void mbox_buffer_setup(unsigned int buffer_addr, unsigned int tag_identifier, unsigned int **res_data,
+                       unsigned int res_length, unsigned int req_length, ...) {
+    va_list args;
+    va_start(args, res_data);
+    volatile unsigned int *mbox = (volatile unsigned int *) (uintptr_t) buffer_addr;
 
-void mbox_buffer_finalize(volatile unsigned int *mbox, unsigned int total_size) {
-  mbox[total_size / 4 - 1] = MBOX_TAG_LAST;
-}
+    volatile unsigned int bufferSize = res_length >= req_length ? res_length : req_length;
 
-// Function to setup and send a mailbox buffer with variable arguments
-void mbox_buffer_setup(unsigned int buffer_addr, unsigned int tag_identifier, unsigned int **res_data, unsigned int res_length, unsigned int req_length, ...) {
-  va_list args;
-  va_start(args, req_length);
-  volatile unsigned int *mbox = (volatile unsigned int *)(uintptr_t)buffer_addr;
+    mbox[1] = MBOX_REQUEST;
 
-  unsigned int bufferSize = res_length >= req_length ? res_length : req_length;
-  unsigned int totalSize = (bufferSize + 3) * 4; // Calculate total buffer size including header and end tag
+    switch (tag_identifier) {
+        case MBOX_TAG_GETSERIAL: // get board serial number
+        case MBOX_TAG_MACADDR:   // get MAC Address
+        case MBOX_TAG_GETMODEL:
+        case MBOX_TAG_ARM_MEMORY:
+        case MBOX_TAG_GETBOARDREVISION:
+        case MBOX_TAG_VC_MEMORY:
+            mbox[0] = 7 * 4; // Size of the entire buffer
+            mbox[2] = tag_identifier;
+            mbox[3] = bufferSize; // Size of the value buffer
+            mbox[4] = 0;          // Request code
+            mbox[5] = 0;          // clear output buffer
+            *res_data = (unsigned int *) &mbox[5];
+            mbox[6] = MBOX_TAG_LAST;
+            break;
+        case MBOX_TAG_GETCLKRATE:
+            mbox[0] = 8 * 4; // Size of the entire buffer
+            mbox[2] = tag_identifier;
+            mbox[3] = bufferSize;                 // Size of the value buffer
+            mbox[4] = 0;                          // Request code
+            mbox[6] = 0;                          // clear output buffer
+            mBuf[5] = va_arg(args, unsigned int); // Clock ID
+            *res_data = (unsigned int *) &mbox[6];
+            mbox[7] = MBOX_TAG_LAST;
+            break;
+        default:
+            printf("Unknown tag identifier: %d\n", tag_identifier);
+            va_end(args);
+            return;
+    }
 
-  mbox_buffer_init(mbox, tag_identifier, totalSize);
-
-  // Set data according to the tag identifier
-  switch (tag_identifier) {
-    case MBOX_TAG_GETSERIAL:
-    case MBOX_TAG_MACADDR:
-    case MBOX_TAG_GETMODEL:
-    case MBOX_TAG_ARM_MEMORY:
-    case MBOX_TAG_GETBOARDREVISION:
-    case MBOX_TAG_VC_MEMORY:
-      mbox[5] = 0;  // Initialize the response buffer area to 0
-      *res_data = (unsigned int *) &mbox[5];
-      break;
-
-    case MBOX_TAG_GETCLKRATE:
-      mbox[5] = va_arg(args, unsigned int);  // Additional data for the clock rate request
-      mbox[6] = 0;  // Initialize the response buffer area to 0
-      *res_data = (unsigned int *) &mbox[6];
-      break;
-
-    default:
-      printf("Unknown tag identifier: %d\n", tag_identifier);
-      va_end(args);
-      return;
-  }
-
-  mbox_buffer_finalize(mbox, totalSize);
-  va_end(args);
+    va_end(args);
 }

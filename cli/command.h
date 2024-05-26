@@ -1,7 +1,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#define COMMAND_COUNT 10
+#define COMMAND_COUNT 14
 #define COLOR_COUNT 8
 
 // Function type for command handlers
@@ -39,4 +39,9 @@ void setStopBits(char *args);
 void setParity(char *args);
 void setHandshaking(char *args);
 
+// screen related commands
+void showImage(char *args);
+void showVideo(char *args);
+void showTeamInfo(char *args);
+void startGame(char *args);
 #endif

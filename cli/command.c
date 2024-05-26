@@ -1,8 +1,12 @@
 #include "command.h"
 #include "printf.h"
+#include "../kernel/utils.h"
 #include "../uart/uart1.h"
 #include "../kernel/mbox.h"
 #include "../kernel/string.h"
+#include "../resources/image.h"
+#include "../resources/video.h"
+#include "../resources/characterFont.h"
 
 extern volatile unsigned int mBuf[];
 
@@ -19,6 +23,11 @@ Command commandList[] = {
   {"set_stopbits", "Set stop bits configuration to 1 or 2.\nExample: ", setStopBits},
   {"set_parity", "Set parity configuration to one of the following: NONE, EVEN, ODD.\nExample: MyBareOS> set_parity odd", setParity},
   {"set_handshaking", "Set CTS/RTS handshaking to ON or OFF.\nExample: MyBareOS> set_handshaking on", setHandshaking},
+  // screen commands
+  {"show_image", "Display the image on the screen.\nExample: MyBareOS> show_image", showImage},
+  {"show_video", "Display the video on the screen.\nExample: MyBareOS> show_video", showVideo},
+  {"show_team_info", "Display team members' names on the screen.\nExample: MyBareOS> show_team_info", showTeamInfo},
+  {"start_game", "Start the game.\nExample: MyBareOS> start_game", startGame}
 };
 
 // Instantiate the colors
@@ -32,6 +41,9 @@ ColorMap colorMappings[] = {
   {"cyan", "\033[1;36m", "\x1b[46m"},
   {"white", "\033[1;37m", "\x1b[47m"}
 };
+
+int currentImageIndex = 0;
+int currentYOffset = -60; // This will track our current position when scrolling
 
 unsigned long strtoul(const char *str, char **endptr, int base){
   unsigned long result = 0;
@@ -238,4 +250,79 @@ void setHandshaking(char *args) {
   else {
     uart_puts("\nInvalid handshaking command. Use 'on' or 'off'.\n");
   }
+}
+
+// helper functions
+void drawGlyph(const unsigned int glyph[][2500], char ch, int base, int x, int y, unsigned int attr) {
+  int pos = ch - base;
+  int row = 0;
+  int col = 0;
+  
+  for (int i = y; i < y + 50; i++) {
+    for (int j = x; j < x + 50; j++) {
+      // Calculate the linear index for the 2D glyph data
+      int pixCount = row * 50 + col;
+      
+      if (glyph[pos][pixCount] == 0x00000000) {
+        drawPixelARGB32(j, i, attr);
+      }
+      
+      col++;  // Move to next column
+      if (col >= 50) {  // If end of the row, move to next row and reset column
+        col = 0;
+        row++;
+      }
+    }
+  }
+}
+
+void drawCharacter(char ch, int x, int y, unsigned int attr) {
+  drawGlyph(character, ch, 'A', x, y, attr);  // Use 'A' as the base character
+}
+
+void showImage(char *args) {
+  // If necessary, load the image based on args or use a predefined image
+  drawImage(large_img, 0, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
+  char key = 0;
+  
+  do {
+    key = uart_getc();
+    if (key == 'w' && currentYOffset < 0) {
+      // Scroll up, but make sure we don't go past the top of the image
+      currentYOffset += 3; // Scroll a fraction of the image's height
+    }
+    else if (key == 's' && currentYOffset > -(IMG_HEIGHT - SCREEN_HEIGHT)) {
+      currentYOffset -= 3;
+    }
+    drawImage(large_img, 0, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
+  } while (key != 'q'); // Exit on pressing 'q'
+
+  // clear screen
+  drawRectARGB32(0, 0, 2000, 2000, 0x00000000, 1);
+}
+
+void showVideo(char *args) {
+  for (int i = 0; i < VIDEO_FRAMES_LENGTH; i++) {
+    drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
+    drawImage(videoBitmapArr[i], 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
+    wait_msec(50000);
+  }
+}
+
+// Helper function to draw a string on the screen
+void drawStringHelper(const char* str, int startX, int startY, unsigned int color) {
+  int x = startX;
+  while(*str) {
+    drawCharacter(*str, x, startY, color);
+    x += 60;
+    str++;
+  }
+}
+
+void showTeamInfo(char *args) {
+  drawStringHelper("DUC LE", 150, 50, 0xFF00FF00);
+}
+
+void startGame(char *args){
+
 }
