@@ -1,4 +1,5 @@
 .vscode/
-*.o
-resources/image.h
-resources/video.h
+build/
+*.img
+resources/image*.h
+resources/video*.h

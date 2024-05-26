@@ -10,7 +10,7 @@ unsigned int width, height, pitch;
 unsigned char *fb;
 
 /**
- * Set screen resolution to 1024x768
+ * Set screen resolution to the specified width and height
  */
 void framebfInit()
 {
@@ -24,8 +24,8 @@ void framebfInit()
     mBuf[7] = MBOX_TAG_SETVIRTWH; // Set virtual width-height
     mBuf[8] = 8;
     mBuf[9] = 0;
-    mBuf[10] = 2000;
-    mBuf[11] = 2000;
+    mBuf[10] = SCREEN_WIDTH;
+    mBuf[11] = SCREEN_HEIGHT;
     mBuf[12] = MBOX_TAG_SETVIRTOFF; // Set virtual offset
     mBuf[13] = 8;
     mBuf[14] = 0;
@@ -49,6 +49,10 @@ void framebfInit()
     mBuf[32] = 0;
     mBuf[33] = 0; // Will get pitch value here
     mBuf[34] = MBOX_TAG_LAST;
+
+    // Debugging output before mailbox call
+    uart_puts("Making mailbox call for framebuffer initialization...\n");
+
     // Call Mailbox
     if (mbox_call(ADDR(mBuf), MBOX_CH_PROP) // mailbox call is successful ?
         && mBuf[20] == COLOR_DEPTH          // got correct color depth ?
@@ -56,24 +60,30 @@ void framebfInit()
         && mBuf[28] != 0                    // got a valid address for frame buffer ?
     )
     {
-        /* Convert GPU address to ARM address (clear higher address bits)
-         * Frame Buffer is located in RAM memory, which VideoCore MMU
-         * maps it to bus address space starting at 0xC0000000.
-         * Software accessing RAM directly use physical addresses
-         * (based at 0x00000000)
-         */
-        mBuf[28] &= 0x3FFFFFFF;
-        // Access frame buffer as 1 byte per each address
-        fb = (unsigned char *)((unsigned long)mBuf[28]);
+        // Ensure the address conversion is correct
+        unsigned int fb_addr = mBuf[28] & 0x3FFFFFFF;
+        fb = (unsigned char *)((unsigned long)fb_addr);
         width = mBuf[5];  // Actual physical width
         height = mBuf[6]; // Actual physical height
         pitch = mBuf[33]; // Number of bytes per line
+
+        // Debugging output for successful initialization
+        uart_puts("Framebuffer initialized.\n");
+        uart_puts("Width: "); uart_dec(width); uart_puts("\n");
+        uart_puts("Height: "); uart_dec(height); uart_puts("\n");
+        uart_puts("Pitch: "); uart_dec(pitch); uart_puts("\n");
+        uart_puts("Framebuffer Address: "); uart_hex(fb_addr); uart_puts("\n");
     }
     else
     {
-        uart_puts("Unable to get a frame buffer with provided setting\n");
+        // Detailed debugging output on failure
+        uart_puts("Unable to get a frame buffer with provided setting.\n");
+        uart_puts("mBuf[20] = "); uart_dec(mBuf[20]); uart_puts("\n");
+        uart_puts("mBuf[24] = "); uart_dec(mBuf[24]); uart_puts("\n");
+        uart_puts("mBuf[28] = "); uart_dec(mBuf[28]); uart_puts("\n");
     }
 }
+
 
 void drawPixelARGB32(int x, int y, unsigned int attr)
 {
@@ -95,7 +105,7 @@ void drawImage(const unsigned int *image, int x_offset, int y_offset, int width,
     }
 }
 
-void drawrectARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill)
+void drawRectARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill)
 {
     for (int y = y1; y <= y2; y++){
         for (int x = x1; x <= x2; x++){

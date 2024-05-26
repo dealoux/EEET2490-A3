@@ -1,4 +1,5 @@
 #include "gpio.h"
+
 /* a properly aligned buffer */
 extern volatile unsigned int mBuf[36];
 #define ADDR(X) (unsigned int)((unsigned long)X)
@@ -59,4 +60,6 @@ extern volatile unsigned int mBuf[36];
 
 /* Function Prototypes */
 int mbox_call(unsigned int buffer_addr, unsigned char channel);
-void mbox_buffer_setup(unsigned int buffer_addr, unsigned int tag_identifier, unsigned int **res_data, unsigned int res_length, unsigned int req_length, ...);
+
+void mbox_buffer_setup(unsigned int buffer_addr, unsigned int tag_identifier, unsigned int **res_data,
+                       unsigned int res_length, unsigned int req_length, ...);
