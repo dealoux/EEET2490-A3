@@ -215,7 +215,7 @@ void wait_msec(unsigned int msVal){
     // Calculate expire value for counter
     /* Note: both expiredTime and counter value t are 64 bits,
     thus, it will still be correct when the counter is overflow */  
-    expiredTime = t + f * msVal / 1000;
+    expiredTime = t + ((f / 1000) * msVal) / 1000;
 
     do {
     	asm volatile ("mrs %0, cntpct_el0" : "=r"(r));

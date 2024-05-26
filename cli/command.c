@@ -4,8 +4,8 @@
 #include "../uart/uart1.h"
 #include "../kernel/mbox.h"
 #include "../kernel/string.h"
-#include "../resources/image1.h"
-#include "../resources/video1.h"
+#include "../resources/image.h"
+#include "../resources/video.h"
 #include "../resources/characterFont.h"
 
 extern volatile unsigned int mBuf[];
@@ -305,7 +305,7 @@ void showVideo(char *args) {
   for (int i = 0; i < VIDEO_FRAMES_LENGTH; i++) {
     drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
     drawImage(videoBitmapArr[i], 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
-    wait_msec(100000);
+    wait_msec(50000);
   }
 }
 
@@ -320,7 +320,7 @@ void drawStringHelper(const char* str, int startX, int startY, unsigned int colo
 }
 
 void showTeamInfo(char *args) {
-  drawStringHelper("Duc Le", 150, 50, 0xFF00FF00);
+  drawStringHelper("DUC LE", 150, 50, 0xFF00FF00);
 }
 
 void startGame(char *args){
