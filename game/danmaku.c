@@ -137,17 +137,6 @@ void updateGameObjects(GameObject *pool, int poolSize, int screenHeight) {
 
 void handleCollisions() {
     unsigned int currentTime = SYSTEM_TIMER_CLO;
-    if (currentTime - playerRespawnTime < 2000000) {
-        return;
-    }
-
-    for (int i = 0; i < MAX_MOBS; i++) {
-        checkCollision(&player, &mobs[i]);
-    }
-
-    for (int i = 0; i < MAX_BOSSES; i++) {
-        checkCollision(&player, &bosses[i]);
-    }
 
     for (int i = 0; i < MAX_PLAYER_BULLETS; i++) {
         if (playerBullets[i].active) {
@@ -166,6 +155,19 @@ void handleCollisions() {
 
     for (int i = 0; i < MAX_SCORE_ITEMS; i++) {
         checkCollision(&player, &scoreItems[i]);
+    }
+
+    // Player invulnerability period
+    if (currentTime - playerRespawnTime < PLAYER_INVULNERABILITY_TIME) {
+        return;
+    }
+
+    for (int i = 0; i < MAX_MOBS; i++) {
+        checkCollision(&player, &mobs[i]);
+    }
+
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        checkCollision(&player, &bosses[i]);
     }
 }
 
@@ -221,7 +223,7 @@ int snprintf(char *str, size_t size, const char *format, ...) {
 
 void drawUI() {
     int offsetX = SCREEN_WIDTH - UI_WIDTH / 1.6 - UI_MARGIN * 2;
-    int offsetXValue = offsetX + UI_MARGIN * 6;
+    int offsetXValue = offsetX + UI_MARGIN * 5.5;
     int offsetY = SCREEN_HEIGHT / 2 - UI_MARGIN * 3;
 
     char buffer[10]; // Buffer to hold the string representation of numbers
@@ -244,23 +246,22 @@ void drawUI() {
 
 void onPlayerHit(GameObject *player, GameObject *enemy) {
     if (!enemy->active) return; // Ensure the enemy is active
-    if (enemy->sprite != spriteItemArray[SCORE] && enemy->sprite != spriteItemArray[POWER]) {
-        printf("Player hit by enemy!\n");
-        player->hp--; // Decrease player HP
-        if (player->hp > 0) {
-            // Respawn player at initial position if HP is not 0
-            player->x = initialPlayerX;
-            player->y = initialPlayerY;
-            playerRespawnTime = SYSTEM_TIMER_CLO + 2000000; // 2 seconds invulnerability
-        } else {
-            player->active = 0; // Deactivate player if HP is 0
-        }
-        enemy->active = 0; // Deactivate enemy on collision
+    if (enemy->sprite == spriteItemArray[SCORE] || enemy->sprite == spriteItemArray[POWER]) return;
+
+    printf("Hit by an enemy! Respawning!\n");
+    player->hp--; // Decrease player HP
+    if (player->hp > 0) {
+        // Respawn player at initial position if HP is not 0
+        player->x = initialPlayerX;
+        player->y = initialPlayerY;
+        playerRespawnTime = SYSTEM_TIMER_CLO + PLAYER_INVULNERABILITY_TIME; // 2 seconds invulnerability
+    } else {
+        player->active = 0; // Deactivate player if HP is 0
     }
+    enemy->active = 0; // Deactivate enemy on collision
 }
 
 void onBulletHit(GameObject *bullet, GameObject *enemy) {
-    printf("Bullet hit enemy!\n");
     bullet->active = 0;
 
     // Reduce HP of the enemy and deactivate if HP reaches 0
@@ -281,16 +282,14 @@ void onBulletHit(GameObject *bullet, GameObject *enemy) {
     }
 }
 
-void onPowerItemPickup(GameObject *player, GameObject *item) {
-    printf("Player picked up a power item!\n");
+void onPowerItemPickup(GameObject *item, GameObject *player) {
     if (playerPower < PLAYER_MAX_POWER) {
         playerPower++;
     }
     item->active = 0;
 }
 
-void onScoreItemPickup(GameObject *player, GameObject *item) {
-    printf("Player picked up a score item!\n");
+void onScoreItemPickup(GameObject *item, GameObject *player) {
     score += 10;
     item->active = 0;
 }
@@ -308,7 +307,7 @@ void handleInput() {
         } else if (input == 'd') {
             player.x += PLAYER_SPEED; // Move right
         } else if (input == ' ' && (currentTime - lastShotTime) > SHOT_COOLDOWN) {
-            int bulletXOffsets[] = {0, -10, 10}; // Offsets for 1, 2, and 3 bullets
+            int bulletXOffsets[] = {0, -20, 20}; // Offsets for 1, 2, and 3 bullets
             int numBullets = playerPower;
 
             for (int i = 0; i < numBullets; i++) {
@@ -483,7 +482,7 @@ void gameLoop() {
         wait_msec(GAME_FRAME_DELAY);
 
         // Check for game over
-        if (!player.active) {
+        if (!player.active && player.hp <= 0) {
             printf("Game Over!\n");
             break;
         }
