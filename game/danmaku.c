@@ -8,20 +8,27 @@
 #include "../resources/spritePlayer.h"
 #include "../resources/spritePlayerBullet.h"
 #include "../resources/spriteMob.h"
-#include "../resources/spriteEnemyBullet.h"
 #include "../resources/spriteBoss.h"
 #include "../resources/spriteItem.h"
 
 GameObject player;
 GameObject playerBullets[MAX_PLAYER_BULLETS];
-GameObject enemyBullets[MAX_ENEMY_BULLETS];
 GameObject mobs[MAX_MOBS];
+GameObject bosses[MAX_BOSSES];
 
 unsigned int score = 0;
-unsigned int playerHP = 3;
+unsigned int lastShotTime = 0;
 unsigned int playerPower = 0;
 unsigned int lastMobSpawnTime = 0;
-int waveDirection = 1; // 1 for left to right, -1 for right to left
+int initialPlayerX = SCREEN_WIDTH / 2;
+int initialPlayerY = SCREEN_HEIGHT - 100;
+
+unsigned int randSeed = 0;
+
+unsigned int rand() {
+    randSeed = randSeed * 1103515245 + 12345;
+    return (randSeed / 65536) % 32768;
+}
 
 void checkCollision(GameObject *a, GameObject *b) {
     if (a->x < b->x + b->width &&
@@ -59,6 +66,7 @@ void updatePlayer() {
     if (player.x + player.width > SCREEN_WIDTH) player.x = SCREEN_WIDTH - player.width;
     if (player.y < 0) player.y = 0;
     if (player.y + player.height > SCREEN_HEIGHT) player.y = SCREEN_HEIGHT - player.height;
+    if (player.hp <= 0) player.active = 0;
 }
 
 void updateBullets(GameObject *bulletPool, int poolSize) {
@@ -77,9 +85,20 @@ void updateBullets(GameObject *bulletPool, int poolSize) {
 void updateMobs() {
     for (int i = 0; i < MAX_MOBS; i++) {
         if (mobs[i].active) {
-            mobs[i].x += mobs[i].speedX;
-            if (mobs[i].x < -mobs[i].width || mobs[i].x > SCREEN_WIDTH) {
+            mobs[i].y += MOB_SPEED;
+            if (mobs[i].y > SCREEN_HEIGHT) {
                 mobs[i].active = 0; // Deactivate mob if it goes off-screen
+            }
+        }
+    }
+}
+
+void updateBosses() {
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        if (bosses[i].active) {
+            bosses[i].y += MOB_SPEED;
+            if (bosses[i].y > SCREEN_HEIGHT) {
+                bosses[i].active = 0; // Deactivate boss if it goes off-screen
             }
         }
     }
@@ -92,11 +111,22 @@ void handleCollisions() {
         }
     }
 
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        if (bosses[i].active) {
+            checkCollision(&player, &bosses[i]);
+        }
+    }
+
     for (int i = 0; i < MAX_PLAYER_BULLETS; i++) {
         if (playerBullets[i].active) {
             for (int j = 0; j < MAX_MOBS; j++) {
                 if (mobs[j].active) {
                     checkCollision(&playerBullets[i], &mobs[j]);
+                }
+            }
+            for (int j = 0; j < MAX_BOSSES; j++) {
+                if (bosses[j].active) {
+                    checkCollision(&playerBullets[i], &bosses[j]);
                 }
             }
         }
@@ -155,7 +185,7 @@ void drawUI() {
 
     // Draw HP
     drawString(offsetX, offsetY += UI_MARGIN, "HP", 0xFFFFFFFF, 1);
-    snprintf(buffer, sizeof(buffer), "%d", playerHP);
+    snprintf(buffer, sizeof(buffer), "%d", player.hp);
     drawString(offsetXValue, offsetY, buffer, 0xFFFFFFFF, 1);
 
     // Draw Power
@@ -166,19 +196,25 @@ void drawUI() {
 
 void onPlayerHit(GameObject *player, GameObject *enemy) {
     printf("Player hit by enemy!\n");
-    player->active = 0;
+    player->hp--; // Decrease player HP
+    if (player->hp > 0) {
+        // Respawn player at initial position if HP is not 0
+        player->x = initialPlayerX;
+        player->y = initialPlayerY;
+    } else {
+        player->active = 0; // Deactivate player if HP is 0
+    }
+    enemy->active = 0; // Deactivate enemy on collision
 }
 
 void onBulletHit(GameObject *bullet, GameObject *enemy) {
     printf("Bullet hit enemy!\n");
     bullet->active = 0;
-    enemy->active = 0;
-}
-
-void onEnemyHit(GameObject *enemy, GameObject *player) {
-    printf("Enemy hit player!\n");
-    enemy->active = 0;
-    player->active = 0;
+    enemy->hp--; // Decrease enemy HP
+    if (enemy->hp <= 0) {
+        enemy->active = 0; // Deactivate enemy if HP is 0
+        score += (enemy->width == SPRITE_BOSS_WIDTH) ? 50 : 10; // Increase score based on enemy type
+    }
 }
 
 void handleInput() {
@@ -193,44 +229,59 @@ void handleInput() {
             player.x -= PLAYER_SPEED; // Move left
         } else if (input == 'd') {
             player.x += PLAYER_SPEED; // Move right
-        } else if (input == ' ' && (currentTime - player.lastShotTime) > SHOT_COOLDOWN) {
+        } else if (input == ' ' && (currentTime - lastShotTime) > SHOT_COOLDOWN) {
             activateBullet(playerBullets, MAX_PLAYER_BULLETS, player.x + player.width / 2 - SPRITE_PLAYER_BULLET_WIDTH / 2, player.y, SPRITE_PLAYER_BULLET_WIDTH, SPRITE_PLAYER_BULLET_HEIGHT, spritePlayerBullet, 0, -PLAYER_BULLET_SPEED);
-            player.lastShotTime = currentTime; // Reset the cooldown timer
+            lastShotTime = currentTime; // Reset the cooldown timer
         }
     }
 }
 
 void spawnEnemyWave() {
-    int startY = SCREEN_WIDTH /4 - SPRITE_MOB_HEIGHT;
-    int speedX = (waveDirection == 1) ? MOB_SPEED : -MOB_SPEED;
-    int startX = (waveDirection == 1) ? 0 : SCREEN_WIDTH - SPRITE_MOB_WIDTH;
-
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < MAX_MOBS; j++) {
             if (!mobs[j].active) {
-                mobs[j].x = startX - i * SPRITE_MOB_WIDTH * waveDirection;
-                mobs[j].y = startY;
+                mobs[j].x = rand() % (SCREEN_WIDTH - SPRITE_MOB_WIDTH);
+                mobs[j].y = -SPRITE_MOB_HEIGHT * (i + 1);
                 mobs[j].width = SPRITE_MOB_WIDTH;
                 mobs[j].height = SPRITE_MOB_HEIGHT;
                 mobs[j].sprite = spriteMob;
                 mobs[j].active = 1;
-                mobs[j].speedX = speedX;
+                mobs[j].speedX = 0;
+                mobs[j].speedY = MOB_SPEED;
+                mobs[j].hp = MOB_HP;
                 break;
             }
         }
     }
-    waveDirection *= -1; // Change direction for the next wave
+
+    if (rand() % 10 == 0) { // Occasionally spawn a boss
+        for (int j = 0; j < MAX_BOSSES; j++) {
+            if (!bosses[j].active) {
+                bosses[j].x = rand() % (SCREEN_WIDTH - SPRITE_BOSS_WIDTH);
+                bosses[j].y = -SPRITE_BOSS_HEIGHT;
+                bosses[j].width = SPRITE_BOSS_WIDTH;
+                bosses[j].height = SPRITE_BOSS_HEIGHT;
+                bosses[j].sprite = spriteBoss;
+                bosses[j].active = 1;
+                bosses[j].speedX = 0;
+                bosses[j].speedY = MOB_SPEED;
+                bosses[j].hp = BOSS_HP;
+                break;
+            }
+        }
+    }
 }
 
 void gameInit() {
     printf("Initializing player...\n");
-    player.x = SCREEN_WIDTH / 2;
-    player.y = SCREEN_HEIGHT - 100;
+    player.x = initialPlayerX;
+    player.y = initialPlayerY;
     player.width = SPRITE_PLAYER_WIDTH;
     player.height = SPRITE_PLAYER_HEIGHT;
     player.active = 1;
     player.sprite = spritePlayer;
     player.onCollision = onPlayerHit;
+    player.hp = PLAYER_HP;
 
     printf("Initializing player bullets...\n");
     for (int i = 0; i < MAX_PLAYER_BULLETS; i++) {
@@ -241,23 +292,29 @@ void gameInit() {
         playerBullets[i].onCollision = onBulletHit;
     }
 
-    printf("Initializing enemy bullets...\n");
-    for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
-        enemyBullets[i].active = 0;
-        enemyBullets[i].width = SPRITE_ENEMY_BULLET_WIDTH;
-        enemyBullets[i].height = SPRITE_ENEMY_BULLET_HEIGHT;
-        enemyBullets[i].sprite = spriteEnemyBullet;
-        enemyBullets[i].onCollision = onEnemyHit;
-    }
-
     printf("Initializing enemies...\n");
     for (int i = 0; i < MAX_MOBS; i++) {
         mobs[i].active = 0;
         mobs[i].width = SPRITE_MOB_WIDTH;
         mobs[i].height = SPRITE_MOB_HEIGHT;
         mobs[i].sprite = spriteMob;
-        mobs[i].onCollision = onEnemyHit;
+        mobs[i].hp = MOB_HP;
     }
+
+    printf("Initializing bosses...\n");
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        bosses[i].active = 0;
+        bosses[i].width = SPRITE_BOSS_WIDTH;
+        bosses[i].height = SPRITE_BOSS_HEIGHT;
+        bosses[i].sprite = spriteBoss;
+        bosses[i].hp = BOSS_HP;
+    }
+
+    printf("Initializing variables...\n");
+    score = 0;
+    playerPower = 0;
+    lastMobSpawnTime = 0;
+    randSeed = 0;
 }
 
 void gameLoop() {
@@ -270,8 +327,8 @@ void gameLoop() {
 
         updatePlayer();
         updateBullets(playerBullets, MAX_PLAYER_BULLETS);
-        updateBullets(enemyBullets, MAX_ENEMY_BULLETS);
         updateMobs();
+        updateBosses();
         handleCollisions();
 
         if (currentTime - lastMobSpawnTime > MOB_SPAWN_INTERVAL) {
@@ -287,18 +344,24 @@ void gameLoop() {
                 drawGameObject(&playerBullets[i]);
             }
         }
-        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
-            if (enemyBullets[i].active) {
-                drawGameObject(&enemyBullets[i]);
-            }
-        }
         for (int i = 0; i < MAX_MOBS; i++) {
             if (mobs[i].active) {
                 drawGameObject(&mobs[i]);
             }
         }
+        for (int i = 0; i < MAX_BOSSES; i++) {
+            if (bosses[i].active) {
+                drawGameObject(&bosses[i]);
+            }
+        }
 
         drawUI();
         wait_msec(GAME_FRAME_DELAY);
+
+        // Check for game over
+        if (!player.active) {
+            printf("Game Over!\n");
+            break;
+        }
     }
 }

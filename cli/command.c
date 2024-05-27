@@ -44,7 +44,8 @@ ColorMap colorMappings[] = {
 };
 
 int currentImageIndex = 0;
-int currentYOffset = -60; // This will track our current position when scrolling
+int currentXOffset = 0; // This will track our current X position when scrolling
+int currentYOffset = -60; // This will track our current Y position when scrolling
 
 unsigned long strtoul(const char *str, char **endptr, int base){
   unsigned long result = 0;
@@ -283,7 +284,7 @@ void drawCharacter(char ch, int x, int y, unsigned int attr) {
 
 void showImage(char *args) {
   // If necessary, load the image based on args or use a predefined image
-  drawImage(large_img, 0, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
+  drawImage(large_img, currentXOffset, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
   char key = 0;
   
   do {
@@ -295,7 +296,13 @@ void showImage(char *args) {
     else if (key == 's' && currentYOffset > -(IMG_HEIGHT - SCREEN_HEIGHT)) {
       currentYOffset -= 3;
     }
-    drawImage(large_img, 0, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
+    // else if (key == 'a' && currentXOffset < 0 ) {
+    //   currentXOffset += 3; 
+    // }
+    // else if (key == 'd' && currentYOffset > -(IMG_WIDTH - SCREEN_WIDTH)) {
+    //   currentXOffset -= 3;
+    // }
+    drawImage(large_img, currentXOffset, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
   } while (key != 'q'); // Exit on pressing 'q'
 
   // clear screen
