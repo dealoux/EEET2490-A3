@@ -3,3 +3,4 @@ build/
 *.img
 resources/image*.h
 resources/video*.h
+# resources/sprite*.h
