@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include "../gcclib/stdint.h"
+#include "../uart/uart1.h"
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
@@ -10,6 +11,12 @@
 #define COLOR_DEPTH 32
 // Pixel Order: BGR in memory order (little endian --> RGB in byte order)
 #define PIXEL_ORDER 0
+
+#define SYSTEM_TIMER_CLO (*(volatile unsigned int *)(MMIO_BASE + 0x00003004))
+#define SYSTEM_TIMER_C1 (*(volatile unsigned int *)(MMIO_BASE + 0x00003010))
+#define SYSTEM_TIMER_CS (*(volatile unsigned int *)(MMIO_BASE + 0x00003000))
+#define IRQ_ENABLE_IRQS_1 ((volatile unsigned int *)(MMIO_BASE + 0x0000B210))
+#define SYSTEM_TIMER_IRQ_1 1
 
 void framebfInit();
 
@@ -22,11 +29,13 @@ void drawString(int x, int y, char *str, unsigned int attr, int zoom);
 
 void drawLineARGB32(int x1, int y1, int x2, int y2, unsigned int color);
 
-unsigned int get_system_time();
 void wait_msec(unsigned int msVal);
 
 void set_wait_timer(int set, unsigned int msVal);
 
 int abs(int x);
+
+void init_system_timer();
+void enable_interrupts();
 
 #endif

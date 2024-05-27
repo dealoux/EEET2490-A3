@@ -241,6 +241,11 @@ void set_wait_timer(int set, unsigned int msVal) {
     }
 }
 
-unsigned int get_system_time() {
-    return *TIMER_CLO;
+void init_system_timer() {
+    SYSTEM_TIMER_C1 = SYSTEM_TIMER_CLO + 1000000; // 1 second delay
+    *IRQ_ENABLE_IRQS_1 = (1 << SYSTEM_TIMER_IRQ_1);
+}
+
+void enable_interrupts() {
+    asm volatile("msr DAIFClr, 0xf");
 }
