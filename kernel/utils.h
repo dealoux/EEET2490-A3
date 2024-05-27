@@ -3,8 +3,8 @@
 
 #include "../gcclib/stdint.h"
 
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 1280
+#define SCREEN_WIDTH 1024
+#define SCREEN_HEIGHT 768
 
 // Use RGBA32 (32 bits for each pixel)
 #define COLOR_DEPTH 32

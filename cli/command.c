@@ -321,7 +321,7 @@ void drawStringHelper(const char* str, int startX, int startY, unsigned int colo
 }
 
 void showTeamInfo(char *args) {
-  drawStringHelper("DUC LE", 640, 640, 0xFF00FF00);
+  drawStringHelper("DUC LE", SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 0xFF00FF00);
 }
 
 void startGame(char *args){

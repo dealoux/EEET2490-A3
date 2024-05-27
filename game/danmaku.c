@@ -1,5 +1,7 @@
 #include "danmaku.h"
 #include "../gcclib/stddef.h"
+#include "../gcclib/stdarg.h"
+#include "../gcclib/stdint.h"
 #include "../cli/printf.h"
 #include "../kernel/utils.h"
 #include "../uart/uart1.h"
@@ -9,14 +11,17 @@
 #include "../resources/spriteEnemyBullet.h"
 #include "../resources/spriteBoss.h"
 #include "../resources/spriteItem.h"
-#include "../resources/spriteBackground.h"
 
 GameObject player;
 GameObject playerBullets[MAX_PLAYER_BULLETS];
 GameObject enemyBullets[MAX_ENEMY_BULLETS];
 GameObject mobs[MAX_MOBS];
 
-unsigned int lastShotTime = 0;
+unsigned int score = 0;
+unsigned int playerHP = 3;
+unsigned int playerPower = 0;
+unsigned int lastMobSpawnTime = 0;
+int waveDirection = 1; // 1 for left to right, -1 for right to left
 
 void checkCollision(GameObject *a, GameObject *b) {
     if (a->x < b->x + b->width &&
@@ -32,7 +37,7 @@ void checkCollision(GameObject *a, GameObject *b) {
     }
 }
 
-void activateBullet(GameObject *bulletPool, int poolSize, int x, int y, int width, int height, const unsigned int *sprite) {
+void activateBullet(GameObject *bulletPool, int poolSize, int x, int y, int width, int height, const unsigned int *sprite, int speedX, int speedY) {
     for (int i = 0; i < poolSize; i++) {
         if (!bulletPool[i].active) {
             bulletPool[i].x = x;
@@ -41,20 +46,28 @@ void activateBullet(GameObject *bulletPool, int poolSize, int x, int y, int widt
             bulletPool[i].height = height;
             bulletPool[i].sprite = sprite;
             bulletPool[i].active = 1;
+            bulletPool[i].speedX = speedX;
+            bulletPool[i].speedY = speedY;
             break;
         }
     }
 }
 
 void updatePlayer() {
-    // Additional player update logic if needed
+    // Ensure player stays within screen boundaries
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > SCREEN_WIDTH) player.x = SCREEN_WIDTH - player.width;
+    if (player.y < 0) player.y = 0;
+    if (player.y + player.height > SCREEN_HEIGHT) player.y = SCREEN_HEIGHT - player.height;
 }
 
-void updateBullets(GameObject *bulletPool, int poolSize, int speed, int direction) {
+void updateBullets(GameObject *bulletPool, int poolSize) {
     for (int i = 0; i < poolSize; i++) {
         if (bulletPool[i].active) {
-            bulletPool[i].y += speed * direction;
-            if (bulletPool[i].y < -bulletPool[i].height || bulletPool[i].y > SCREEN_HEIGHT + bulletPool[i].height) {
+            bulletPool[i].x += bulletPool[i].speedX;
+            bulletPool[i].y += bulletPool[i].speedY;
+            if (bulletPool[i].y < -bulletPool[i].height || bulletPool[i].y > SCREEN_HEIGHT + bulletPool[i].height ||
+                bulletPool[i].x < -bulletPool[i].width || bulletPool[i].x > SCREEN_WIDTH + bulletPool[i].width) {
                 bulletPool[i].active = 0; // Deactivate bullet if it goes off-screen
             }
         }
@@ -64,9 +77,9 @@ void updateBullets(GameObject *bulletPool, int poolSize, int speed, int directio
 void updateMobs() {
     for (int i = 0; i < MAX_MOBS; i++) {
         if (mobs[i].active) {
-            mobs[i].y += ENEMY_SPEED;
-            if (mobs[i].y > SCREEN_HEIGHT) {
-                mobs[i].active = 0; // Deactivate enemy if it goes off-screen
+            mobs[i].x += mobs[i].speedX;
+            if (mobs[i].x < -mobs[i].width || mobs[i].x > SCREEN_WIDTH) {
+                mobs[i].active = 0; // Deactivate mob if it goes off-screen
             }
         }
     }
@@ -98,6 +111,59 @@ void drawGameObject(GameObject *obj) {
     }
 }
 
+// A simple implementation of snprintf for converting integers to strings
+int snprintf(char *str, size_t size, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int num = va_arg(args, int);
+    int n = 0;
+    int temp_num = num;
+
+    // Calculate number of digits
+    do {
+        n++;
+        temp_num /= 10;
+    } while (temp_num != 0);
+
+    // Check if the buffer size is sufficient
+    if (n >= size) {
+        va_end(args);
+        return -1;
+    }
+
+    str[n] = '\0';
+    while (n--) {
+        str[n] = '0' + (num % 10);
+        num /= 10;
+    }
+
+    va_end(args);
+    return n;
+}
+
+void drawUI() {
+    int offsetX = SCREEN_WIDTH - UI_WIDTH / 2 - UI_MARGIN * 2;
+    int offsetXValue = offsetX + UI_MARGIN * 3;
+    int offsetY = SCREEN_HEIGHT / 2 - UI_MARGIN * 3;
+
+    char buffer[10]; // Buffer to hold the string representation of numbers
+
+    // Draw Score
+    drawString(offsetX, offsetY, "Score", 0xFFFFFFFF, 1);
+    snprintf(buffer, sizeof(buffer), "%d", score);
+    drawString(offsetXValue, offsetY, buffer, 0xFFFFFFFF, 1);
+
+    // Draw HP
+    drawString(offsetX, offsetY += UI_MARGIN, "HP", 0xFFFFFFFF, 1);
+    snprintf(buffer, sizeof(buffer), "%d", playerHP);
+    drawString(offsetXValue, offsetY, buffer, 0xFFFFFFFF, 1);
+
+    // Draw Power
+    drawString(offsetX, offsetY += UI_MARGIN, "Power", 0xFFFFFFFF, 1);
+    snprintf(buffer, sizeof(buffer), "%d", playerPower);
+    drawString(offsetXValue, offsetY, buffer, 0xFFFFFFFF, 1);
+}
+
 void onPlayerHit(GameObject *player, GameObject *enemy) {
     printf("Player hit by enemy!\n");
     player->active = 0;
@@ -120,19 +186,40 @@ void handleInput() {
         char input = uart_getc();
         unsigned int currentTime = get_system_time();
         if (input == 'w') {
-            player.y -= 5; // Move up
+            player.y -= PLAYER_SPEED; // Move up
         } else if (input == 's') {
-            player.y += 5; // Move down
+            player.y += PLAYER_SPEED; // Move down
         } else if (input == 'a') {
-            player.x -= 5; // Move left
+            player.x -= PLAYER_SPEED; // Move left
         } else if (input == 'd') {
-            player.x += 5; // Move right
-        } else if (input == ' ' && (currentTime - lastShotTime) > SHOT_COOLDOWN) {
-            // Fire bullet if cooldown has passed
-            activateBullet(playerBullets, MAX_PLAYER_BULLETS, player.x + player.width / 2 - SPRITE_PLAYER_BULLET_WIDTH / 2, player.y, SPRITE_PLAYER_BULLET_WIDTH, SPRITE_PLAYER_BULLET_HEIGHT, spritePlayerBullet);
-            lastShotTime = currentTime; // Reset the cooldown timer
+            player.x += PLAYER_SPEED; // Move right
+        } else if (input == ' ' && (currentTime - player.lastShotTime) > SHOT_COOLDOWN) {
+            activateBullet(playerBullets, MAX_PLAYER_BULLETS, player.x + player.width / 2 - SPRITE_PLAYER_BULLET_WIDTH / 2, player.y, SPRITE_PLAYER_BULLET_WIDTH, SPRITE_PLAYER_BULLET_HEIGHT, spritePlayerBullet, 0, -PLAYER_BULLET_SPEED);
+            player.lastShotTime = currentTime; // Reset the cooldown timer
         }
     }
+}
+
+void spawnEnemyWave() {
+    int startY = SCREEN_WIDTH /4 - SPRITE_MOB_HEIGHT;
+    int speedX = (waveDirection == 1) ? MOB_SPEED : -MOB_SPEED;
+    int startX = (waveDirection == 1) ? 0 : SCREEN_WIDTH - SPRITE_MOB_WIDTH;
+
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < MAX_MOBS; j++) {
+            if (!mobs[j].active) {
+                mobs[j].x = startX - i * SPRITE_MOB_WIDTH * waveDirection;
+                mobs[j].y = startY;
+                mobs[j].width = SPRITE_MOB_WIDTH;
+                mobs[j].height = SPRITE_MOB_HEIGHT;
+                mobs[j].sprite = spriteMob;
+                mobs[j].active = 1;
+                mobs[j].speedX = speedX;
+                break;
+            }
+        }
+    }
+    waveDirection *= -1; // Change direction for the next wave
 }
 
 void gameInit() {
@@ -177,13 +264,20 @@ void gameLoop() {
     printf("Entering game loop...\n");
 
     while (1) {
+        unsigned int currentTime = get_system_time();
+
         handleInput();
 
         updatePlayer();
-        updateBullets(playerBullets, MAX_PLAYER_BULLETS, PLAYER_BULLET_SPEED, -1);
-        updateBullets(enemyBullets, MAX_ENEMY_BULLETS, ENEMY_BULLET_SPEED, 1);
+        updateBullets(playerBullets, MAX_PLAYER_BULLETS);
+        updateBullets(enemyBullets, MAX_ENEMY_BULLETS);
         updateMobs();
         handleCollisions();
+
+        if (currentTime - lastMobSpawnTime > MOB_SPAWN_INTERVAL) {
+            spawnEnemyWave();
+            lastMobSpawnTime = currentTime;
+        }
 
         drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
 
@@ -204,6 +298,7 @@ void gameLoop() {
             }
         }
 
+        drawUI();
         wait_msec(GAME_FRAME_DELAY);
     }
 }
