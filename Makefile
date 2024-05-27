@@ -2,9 +2,10 @@ SRC_DIR = ./kernel
 BUILD_DIR = ./build
 UART_DIR = ./uart
 CLI_DIR = ./cli
+GAME_DIR = ./game
 
 # Find all .c files and replace with corresponding .o files
-CFILES := $(shell find $(SRC_DIR) -name '*.c') $(shell find $(UART_DIR) -name '*.c') $(shell find $(CLI_DIR) -name '*.c')
+CFILES := $(shell find $(SRC_DIR) -name '*.c') $(shell find $(UART_DIR) -name '*.c') $(shell find $(CLI_DIR) -name '*.c') $(shell find $(GAME_DIR) -name '*.c')
 OFILES := $(patsubst %.c,$(BUILD_DIR)/%.o,$(notdir $(CFILES)))
 
 GCCFLAGS = -Wall -O2 -ffreestanding -nostdinc -nostdlib -nostartfiles
@@ -15,7 +16,7 @@ all: clean kernel8.img run
 $(BUILD_DIR)/boot.o: $(SRC_DIR)/boot.s
 	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
 
-# Build UART, SRC, and CLI directories
+# Build UART, SRC, CLI, and GAME directories
 $(BUILD_DIR)/%.o: $(UART_DIR)/%.c
 	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
 
@@ -23,6 +24,9 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(CLI_DIR)/%.c
+	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(GAME_DIR)/%.c
 	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
 
 # Link all object files into the final kernel image

@@ -7,6 +7,7 @@
 #include "../resources/image.h"
 #include "../resources/video.h"
 #include "../resources/characterFont.h"
+#include "../game/danmaku.h"
 
 extern volatile unsigned int mBuf[];
 
@@ -324,5 +325,6 @@ void showTeamInfo(char *args) {
 }
 
 void startGame(char *args){
-
+  gameInit();
+  gameLoop();
 }

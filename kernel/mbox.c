@@ -1,4 +1,3 @@
-// -----------------------------------mbox.c -------------------------------------
 #include "mbox.h"
 #include "gpio.h"
 #include "../uart/uart1.h"
@@ -68,7 +67,6 @@ int mbox_call(unsigned int buffer_addr, unsigned char channel) {
     if (msg == mailbox_read(channel)) {
         /* is it a valid successful response (Response Code) ? */
         if (mBuf[1] == MBOX_RESPONSE)
-
             return (mBuf[1] == MBOX_RESPONSE);
     }
     uart_puts("Got false response \n");
@@ -78,7 +76,7 @@ int mbox_call(unsigned int buffer_addr, unsigned char channel) {
 void mbox_buffer_setup(unsigned int buffer_addr, unsigned int tag_identifier, unsigned int **res_data,
                        unsigned int res_length, unsigned int req_length, ...) {
     va_list args;
-    va_start(args, res_data);
+    va_start(args, req_length);
     volatile unsigned int *mbox = (volatile unsigned int *) (uintptr_t) buffer_addr;
 
     volatile unsigned int bufferSize = res_length >= req_length ? res_length : req_length;

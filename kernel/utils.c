@@ -12,8 +12,7 @@ unsigned char *fb;
 /**
  * Set screen resolution to the specified width and height
  */
-void framebfInit()
-{
+void framebfInit() {
     mBuf[0] = 35 * 4; // Length of message in bytes
     mBuf[1] = MBOX_REQUEST;
     mBuf[2] = MBOX_TAG_SETPHYWH;  // Set physical width-height
@@ -58,8 +57,7 @@ void framebfInit()
         && mBuf[20] == COLOR_DEPTH          // got correct color depth ?
         && mBuf[24] == PIXEL_ORDER          // got correct pixel order ?
         && mBuf[28] != 0                    // got a valid address for frame buffer ?
-    )
-    {
+    ) {
         // Ensure the address conversion is correct
         unsigned int fb_addr = mBuf[28] & 0x3FFFFFFF;
         fb = (unsigned char *)((unsigned long)fb_addr);
@@ -74,8 +72,7 @@ void framebfInit()
         uart_puts("Pitch: "); uart_dec(pitch); uart_puts("\n");
         uart_puts("Framebuffer Address: "); uart_hex(fb_addr); uart_puts("\n");
     }
-    else
-    {
+    else {
         // Detailed debugging output on failure
         uart_puts("Unable to get a frame buffer with provided setting.\n");
         uart_puts("mBuf[20] = "); uart_dec(mBuf[20]); uart_puts("\n");
@@ -85,16 +82,14 @@ void framebfInit()
 }
 
 
-void drawPixelARGB32(int x, int y, unsigned int attr)
-{
+void drawPixelARGB32(int x, int y, unsigned int attr) {
     int offs = (y * pitch) + (COLOR_DEPTH / 8 * x);
     // Access 32-bit together
     *((unsigned int *)(fb + offs)) = attr;
 }
 
 // Function to draw the image
-void drawImage(const unsigned int *image, int x_offset, int y_offset, int width, int height)
-{
+void drawImage(const unsigned int *image, int x_offset, int y_offset, int width, int height) {
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
@@ -105,8 +100,7 @@ void drawImage(const unsigned int *image, int x_offset, int y_offset, int width,
     }
 }
 
-void drawRectARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill)
-{
+void drawRectARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill) {
     for (int y = y1; y <= y2; y++){
         for (int x = x1; x <= x2; x++){
             drawPixelARGB32(x, y, attr);
@@ -114,8 +108,7 @@ void drawRectARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill)
     }
 }
 
-void drawLineARGB32(int x1, int y1, int x2, int y2, unsigned int color)
-{
+void drawLineARGB32(int x1, int y1, int x2, int y2, unsigned int color) {
     int dx = abs(x2 - x1);
     int dy = abs(y2 - y1);
 
@@ -150,8 +143,7 @@ int abs(int x) {
 
 /* Functions to display text on the screen */
 // NOTE: zoom = 0 will not display the character
-void drawChar(unsigned char ch, int x, int y, unsigned int attr, int zoom)
-{
+void drawChar(unsigned char ch, int x, int y, unsigned int attr, int zoom) {
     unsigned char *glyph = (unsigned char *)&font + (ch < FONT_NUMGLYPHS ? ch : 0) * FONT_BPG;
 
     for (int i = 1; i <= (FONT_HEIGHT*zoom); i++) {
@@ -166,8 +158,7 @@ void drawChar(unsigned char ch, int x, int y, unsigned int attr, int zoom)
 }
 
 // Function to draw string of words
-void drawString(int x, int y, char *str, unsigned int attr, int zoom)
-{
+void drawString(int x, int y, char *str, unsigned int attr, int zoom) {
     while (*str) {
         if (*str == '\r') {
             x = 0;
@@ -194,7 +185,7 @@ unsigned int uart_isReadByteReady(){
 }
 #endif
 
-unsigned char getUart(){
+unsigned char getUart() {
     unsigned char ch = 0;
     if (uart_isReadByteReady())
     	ch = uart_getc();
@@ -203,7 +194,7 @@ unsigned char getUart(){
 
 /* Functions to delay, set/wait timer */
 
-void wait_msec(unsigned int msVal){
+void wait_msec(unsigned int msVal) {
     register unsigned long f, t, r, expiredTime; //64 bits
 
     // Get the current counter frequency (Hz), 1Hz = 1 pulses/second
