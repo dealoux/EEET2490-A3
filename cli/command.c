@@ -206,38 +206,38 @@ void displayBoardInfo(char *args){
 void setBaudRate(char *args) {
   unsigned int baudRate = strtoul(args, NULL, 10);
   uart_set_baud_rate(baudRate);
-  uart_puts("\nBaud rate updated.\n");
+  printf("\nBaud rate updated.\n");
 }
 
 void setDataBits(char *args) {
   if(strcmp(args, "5") != 0 && strcmp(args, "6") != 0 && strcmp(args, "7") != 0 && strcmp(args, "8") != 0) {
-    uart_puts("\nInvalid data bits setting. Use '5', '6', '7', or '8'.\n");
+    printf("\nInvalid data bits setting. Use '5', '6', '7', or '8'.\n");
     return;
   }
 
   unsigned char dataBits = (unsigned char)strtoul(args, NULL, 10);
   uart_set_data_bits(dataBits);
-  uart_puts("\nData bits setting updated.\n");
+  printf("\nData bits setting updated.\n");
 }
 
 void setStopBits(char *args) {
   unsigned char stop_bits = (unsigned char)strtoul(args, NULL, 10);
   if (stop_bits == 1 || stop_bits == 2) {
     uart_set_stop_bits(stop_bits);
-    uart_puts("\nStop bits setting updated.\n");
+    printf("\nStop bits setting updated.\n");
   } 
   else {
-    uart_puts("\nInvalid stop bits setting. Use '1' or '2'.\n");
+    printf("\nInvalid stop bits setting. Use '1' or '2'.\n");
   }
 }
 
 void setParity(char *args) {
   if (strcmp(args, "none") == 0 || strcmp(args, "even") == 0 || strcmp(args, "odd") == 0) {
     uart_set_parity(args);
-    uart_puts("\nParity setting updated.\n");
+    printf("\nParity setting updated.\n");
   } 
   else {
-    uart_puts("\nInvalid parity setting. Use 'none', 'even', or 'odd'.\n");
+    printf("\nInvalid parity setting. Use 'none', 'even', or 'odd'.\n");
   }
 }
 
@@ -249,7 +249,7 @@ void setHandshaking(char *args) {
     uart_disable_handshaking();
   } 
   else {
-    uart_puts("\nInvalid handshaking command. Use 'on' or 'off'.\n");
+    printf("\nInvalid handshaking command. Use 'on' or 'off'.\n");
   }
 }
 
@@ -321,10 +321,12 @@ void drawStringHelper(const char* str, int startX, int startY, unsigned int colo
 }
 
 void showTeamInfo(char *args) {
-  drawStringHelper("DUC LE", 150, 50, 0xFF00FF00);
+  drawStringHelper("DUC LE", 640, 640, 0xFF00FF00);
 }
 
 void startGame(char *args){
+  printf("Starting game...\n");
   gameInit();
+  printf("Game initialized.\n");
   gameLoop();
 }

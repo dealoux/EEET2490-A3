@@ -1,5 +1,7 @@
-#ifndef FRAMEBUFFER_H
-#define FRAMEBUFFER_H
+#ifndef UTILS_H
+#define UTILS_H
+
+#include "../gcclib/stdint.h"
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 1280
@@ -20,8 +22,8 @@ void drawString(int x, int y, char *str, unsigned int attr, int zoom);
 
 void drawLineARGB32(int x1, int y1, int x2, int y2, unsigned int color);
 
-void wait_msec(unsigned int n);
-
+unsigned int get_system_time();
+void wait_msec(unsigned int msVal);
 
 void set_wait_timer(int set, unsigned int msVal);
 

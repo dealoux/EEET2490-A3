@@ -12,8 +12,11 @@
 #include "../resources/spriteBackground.h"
 
 GameObject player;
-GameObject bullets[MAX_BULLETS];
-GameObject enemies[MAX_ENEMIES];
+GameObject playerBullets[MAX_PLAYER_BULLETS];
+GameObject enemyBullets[MAX_ENEMY_BULLETS];
+GameObject mobs[MAX_MOBS];
+
+unsigned int lastShotTime = 0;
 
 void checkCollision(GameObject *a, GameObject *b) {
     if (a->x < b->x + b->width &&
@@ -29,25 +32,16 @@ void checkCollision(GameObject *a, GameObject *b) {
     }
 }
 
-void handleInput() {
-    char input = uart_getc();
-    if (input == 'w') {
-        player.y -= 5; // Move up
-    } else if (input == 's') {
-        player.y += 5; // Move down
-    } else if (input == 'a') {
-        player.x -= 5; // Move left
-    } else if (input == 'd') {
-        player.x += 5; // Move right
-    } else if (input == ' ') {
-        // Fire bullet
-        for (int i = 0; i < MAX_BULLETS; i++) {
-            if (!bullets[i].active) {
-                bullets[i].x = player.x + player.width / 2 - bullets[i].width / 2;
-                bullets[i].y = player.y;
-                bullets[i].active = 1;
-                break;
-            }
+void activateBullet(GameObject *bulletPool, int poolSize, int x, int y, int width, int height, const unsigned int *sprite) {
+    for (int i = 0; i < poolSize; i++) {
+        if (!bulletPool[i].active) {
+            bulletPool[i].x = x;
+            bulletPool[i].y = y;
+            bulletPool[i].width = width;
+            bulletPool[i].height = height;
+            bulletPool[i].sprite = sprite;
+            bulletPool[i].active = 1;
+            break;
         }
     }
 }
@@ -56,42 +50,40 @@ void updatePlayer() {
     // Additional player update logic if needed
 }
 
-void updateBullets() {
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i].active) {
-            bullets[i].y -= BULLET_SPEED;
-            if (bullets[i].y < 0) {
-                bullets[i].active = 0; // Deactivate bullet if it goes off-screen
+void updateBullets(GameObject *bulletPool, int poolSize, int speed, int direction) {
+    for (int i = 0; i < poolSize; i++) {
+        if (bulletPool[i].active) {
+            bulletPool[i].y += speed * direction;
+            if (bulletPool[i].y < -bulletPool[i].height || bulletPool[i].y > SCREEN_HEIGHT + bulletPool[i].height) {
+                bulletPool[i].active = 0; // Deactivate bullet if it goes off-screen
             }
         }
     }
 }
 
-void updateEnemies() {
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i].active) {
-            enemies[i].y += ENEMY_SPEED;
-            if (enemies[i].y > SCREEN_HEIGHT) {
-                enemies[i].active = 0; // Deactivate enemy if it goes off-screen
+void updateMobs() {
+    for (int i = 0; i < MAX_MOBS; i++) {
+        if (mobs[i].active) {
+            mobs[i].y += ENEMY_SPEED;
+            if (mobs[i].y > SCREEN_HEIGHT) {
+                mobs[i].active = 0; // Deactivate enemy if it goes off-screen
             }
         }
     }
 }
 
 void handleCollisions() {
-    // Check for collisions between player and enemies
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (enemies[i].active) {
-            checkCollision(&player, &enemies[i]);
+    for (int i = 0; i < MAX_MOBS; i++) {
+        if (mobs[i].active) {
+            checkCollision(&player, &mobs[i]);
         }
     }
 
-    // Check for collisions between bullets and enemies
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        if (bullets[i].active) {
-            for (int j = 0; j < MAX_ENEMIES; j++) {
-                if (enemies[j].active) {
-                    checkCollision(&bullets[i], &enemies[j]);
+    for (int i = 0; i < MAX_PLAYER_BULLETS; i++) {
+        if (playerBullets[i].active) {
+            for (int j = 0; j < MAX_MOBS; j++) {
+                if (mobs[j].active) {
+                    checkCollision(&playerBullets[i], &mobs[j]);
                 }
             }
         }
@@ -107,28 +99,44 @@ void drawGameObject(GameObject *obj) {
 }
 
 void onPlayerHit(GameObject *player, GameObject *enemy) {
-    // Handle player being hit by enemy
     printf("Player hit by enemy!\n");
-    // For example, deactivate the player or reduce health
     player->active = 0;
 }
 
 void onBulletHit(GameObject *bullet, GameObject *enemy) {
-    // Handle bullet hitting enemy
     printf("Bullet hit enemy!\n");
     bullet->active = 0;
     enemy->active = 0;
 }
 
 void onEnemyHit(GameObject *enemy, GameObject *player) {
-    // Handle enemy hitting player
     printf("Enemy hit player!\n");
     enemy->active = 0;
     player->active = 0;
 }
 
+void handleInput() {
+    if (uart_isReadByteReady()) {
+        char input = uart_getc();
+        unsigned int currentTime = get_system_time();
+        if (input == 'w') {
+            player.y -= 5; // Move up
+        } else if (input == 's') {
+            player.y += 5; // Move down
+        } else if (input == 'a') {
+            player.x -= 5; // Move left
+        } else if (input == 'd') {
+            player.x += 5; // Move right
+        } else if (input == ' ' && (currentTime - lastShotTime) > SHOT_COOLDOWN) {
+            // Fire bullet if cooldown has passed
+            activateBullet(playerBullets, MAX_PLAYER_BULLETS, player.x + player.width / 2 - SPRITE_PLAYER_BULLET_WIDTH / 2, player.y, SPRITE_PLAYER_BULLET_WIDTH, SPRITE_PLAYER_BULLET_HEIGHT, spritePlayerBullet);
+            lastShotTime = currentTime; // Reset the cooldown timer
+        }
+    }
+}
+
 void gameInit() {
-    // Initialize player
+    printf("Initializing player...\n");
     player.x = SCREEN_WIDTH / 2;
     player.y = SCREEN_HEIGHT - 100;
     player.width = SPRITE_PLAYER_WIDTH;
@@ -137,49 +145,65 @@ void gameInit() {
     player.sprite = spritePlayer;
     player.onCollision = onPlayerHit;
 
-    // Initialize player bullets
-    for (int i = 0; i < MAX_BULLETS; i++) {
-        bullets[i].active = 0;
-        bullets[i].width = SPRITE_PLAYER_BULLET_WIDTH;
-        bullets[i].height = SPRITE_PLAYER_BULLET_HEIGHT;
-        bullets[i].sprite = spritePlayerBullet;
-        bullets[i].onCollision = onBulletHit;
+    printf("Initializing player bullets...\n");
+    for (int i = 0; i < MAX_PLAYER_BULLETS; i++) {
+        playerBullets[i].active = 0;
+        playerBullets[i].width = SPRITE_PLAYER_BULLET_WIDTH;
+        playerBullets[i].height = SPRITE_PLAYER_BULLET_HEIGHT;
+        playerBullets[i].sprite = spritePlayerBullet;
+        playerBullets[i].onCollision = onBulletHit;
     }
 
-    // Initialize enemies
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        enemies[i].active = 0;
-        enemies[i].width = SPRITE_MOB_WIDTH;
-        enemies[i].height = SPRITE_MOB_HEIGHT;
-        enemies[i].sprite = spriteMob;
-        enemies[i].onCollision = onEnemyHit;
+    printf("Initializing enemy bullets...\n");
+    for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+        enemyBullets[i].active = 0;
+        enemyBullets[i].width = SPRITE_ENEMY_BULLET_WIDTH;
+        enemyBullets[i].height = SPRITE_ENEMY_BULLET_HEIGHT;
+        enemyBullets[i].sprite = spriteEnemyBullet;
+        enemyBullets[i].onCollision = onEnemyHit;
+    }
+
+    printf("Initializing enemies...\n");
+    for (int i = 0; i < MAX_MOBS; i++) {
+        mobs[i].active = 0;
+        mobs[i].width = SPRITE_MOB_WIDTH;
+        mobs[i].height = SPRITE_MOB_HEIGHT;
+        mobs[i].sprite = spriteMob;
+        mobs[i].onCollision = onEnemyHit;
     }
 }
 
 void gameLoop() {
+    printf("Entering game loop...\n");
+
     while (1) {
-        handleInput(); // Capture player inputs
+        handleInput();
 
         updatePlayer();
-        updateBullets();
-        updateEnemies();
+        updateBullets(playerBullets, MAX_PLAYER_BULLETS, PLAYER_BULLET_SPEED, -1);
+        updateBullets(enemyBullets, MAX_ENEMY_BULLETS, ENEMY_BULLET_SPEED, 1);
+        updateMobs();
         handleCollisions();
 
-        // clear screen
-        drawRectARGB32(0, 0, 2000, 2000, 0x00000000, 1);
+        drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
 
         drawGameObject(&player);
-        for (int i = 0; i < MAX_BULLETS; i++) {
-            if (bullets[i].active) {
-                drawGameObject(&bullets[i]);
+        for (int i = 0; i < MAX_PLAYER_BULLETS; i++) {
+            if (playerBullets[i].active) {
+                drawGameObject(&playerBullets[i]);
             }
         }
-        for (int i = 0; i < MAX_ENEMIES; i++) {
-            if (enemies[i].active) {
-                drawGameObject(&enemies[i]);
+        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+            if (enemyBullets[i].active) {
+                drawGameObject(&enemyBullets[i]);
+            }
+        }
+        for (int i = 0; i < MAX_MOBS; i++) {
+            if (mobs[i].active) {
+                drawGameObject(&mobs[i]);
             }
         }
 
-        wait_msec(10000); // Adjust frame timing as needed
+        wait_msec(GAME_FRAME_DELAY);
     }
 }

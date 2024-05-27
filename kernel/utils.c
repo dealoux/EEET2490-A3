@@ -2,6 +2,12 @@
 #include "font.h"
 #include "mbox.h"
 #include "../uart/uart1.h"
+#include "../gcclib/stdint.h"
+
+
+#define TIMER_BASE 0x3F003000
+#define TIMER_CLO ((volatile unsigned int*)(TIMER_BASE + 0x04))
+#define TIMER_CHI ((volatile unsigned int*)(TIMER_BASE + 0x08))
 
 // Screen info
 unsigned int width, height, pitch;
@@ -233,4 +239,8 @@ void set_wait_timer(int set, unsigned int msVal) {
             asm volatile ("mrs %0, cntpct_el0" : "=r"(r));
         } while(r < expiredTime);
     }
+}
+
+unsigned int get_system_time() {
+    return *TIMER_CLO;
 }
