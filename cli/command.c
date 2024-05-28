@@ -26,7 +26,7 @@ Command commandList[] = {
   {"set_handshaking", "Set CTS/RTS handshaking to ON or OFF.\nExample: MyBareOS> set_handshaking on", setHandshaking},
   // screen commands
   {"clear_display", "Clear the screen display.\nExample: MyBareOS> clear_display", clearDisplay},
-  {"show_image", "Display the image on the screen, scroll vertically using W and S keys.\nExample: MyBareOS> show_image", showImage},
+  {"show_image", "Display the image on the screen, scroll vertically using W and S keys, exit by pressing Q.\nExample: MyBareOS> show_image", showImage},
   {"show_video", "Display the video on the screen.\nExample: MyBareOS> show_video", showVideo},
   {"show_team_info", "Display team members' names on the screen.\nExample: MyBareOS> show_team_info", showTeamInfo},
   {"start_game", "Start the game.\nExample: MyBareOS> start_game", startGame}
@@ -332,7 +332,7 @@ void drawStringHelper(const char* str, int startX, int startY, unsigned int colo
 }
 
 void showTeamInfo(char *args) {
-  drawStringHelper("DUC LE", SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 0xFF00FF00);
+  drawStringHelper("DUC LE", SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 -50, 0xFF00FF00);
 }
 
 void startGame(char *args){

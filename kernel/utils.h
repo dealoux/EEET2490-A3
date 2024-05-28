@@ -18,6 +18,10 @@
 #define IRQ_ENABLE_IRQS_1 ((volatile unsigned int *)(MMIO_BASE + 0x0000B210))
 #define SYSTEM_TIMER_IRQ_1 1
 
+#define TIMER_BASE 0x3F003000
+#define TIMER_CLO ((volatile unsigned int*)(TIMER_BASE + 0x04))
+#define TIMER_CHI ((volatile unsigned int*)(TIMER_BASE + 0x08))
+
 void framebfInit();
 
 void drawImage(const unsigned int *image, int x_offset, int y_offset, int width, int height);
