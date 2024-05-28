@@ -6,7 +6,6 @@
 #include "../kernel/string.h"
 #include "../resources/image.h"
 #include "../resources/video.h"
-#include "../resources/characterFont.h"
 #include "../game/danmaku.h"
 
 extern volatile unsigned int mBuf[];
@@ -255,34 +254,6 @@ void setHandshaking(char *args) {
   }
 }
 
-// helper functions
-void drawGlyph(const unsigned int glyph[][2500], char ch, int base, int x, int y, unsigned int attr) {
-  int pos = ch - base;
-  int row = 0;
-  int col = 0;
-  
-  for (int i = y; i < y + 50; i++) {
-    for (int j = x; j < x + 50; j++) {
-      // Calculate the linear index for the 2D glyph data
-      int pixCount = row * 50 + col;
-      
-      if (glyph[pos][pixCount] == 0x00000000) {
-        drawPixelARGB32(j, i, attr);
-      }
-      
-      col++;  // Move to next column
-      if (col >= 50) {  // If end of the row, move to next row and reset column
-        col = 0;
-        row++;
-      }
-    }
-  }
-}
-
-void drawCharacter(char ch, int x, int y, unsigned int attr) {
-  drawGlyph(character, ch, 'A', x, y, attr);  // Use 'A' as the base character
-}
-
 void clearDisplay(char *args){
   drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
 }
@@ -321,18 +292,9 @@ void showVideo(char *args) {
   }
 }
 
-// Helper function to draw a string on the screen
-void drawStringHelper(const char* str, int startX, int startY, unsigned int color) {
-  int x = startX;
-  while(*str) {
-    drawCharacter(*str, x, startY, color);
-    x += 60;
-    str++;
-  }
-}
-
 void showTeamInfo(char *args) {
-  drawStringHelper("DUC LE", SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 -50, 0xFF00FF00);
+  drawString(SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 -50, "DUC", 0xFF00FF00, 4);
+  drawString(SCREEN_WIDTH/2 + 20, SCREEN_HEIGHT/2 -50, "LE", 0xFF0000FF, 4);
 }
 
 void startGame(char *args){
