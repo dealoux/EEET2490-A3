@@ -15,7 +15,7 @@ extern volatile unsigned int mBuf[];
 Command commandList[] = {
   {"help", "Show brief information of all commands.\nExample: MyBareOS> help\n", displayAllCommands},
   {"help <command_name>", "Show full information of the specified command.\nExample: MyBareOS> help showinfo\n"},
-  {"clear", "Clear the terminal.\nExample: MyBareOS> clear\n", clearScreen},
+  {"clear", "Clear the terminal.\nExample: MyBareOS> clear\n", clearCLI},
   {"setcolor", "Set text color, and/or background color of the console to one of the following colors: BLACK, RED, GREEN, YELLOW, BLUE, PURPLE, CYAN, WHITE.\nExamples:\n MyBareOS> setcolor -t green\nMyBareOS> setcolor -b green -t yellow\n", setConsoleColor},
   {"showinfo", "Show board revision and board MAC address.", displayBoardInfo},
   // uarts commands
@@ -25,7 +25,8 @@ Command commandList[] = {
   {"set_parity", "Set parity configuration to one of the following: NONE, EVEN, ODD.\nExample: MyBareOS> set_parity odd", setParity},
   {"set_handshaking", "Set CTS/RTS handshaking to ON or OFF.\nExample: MyBareOS> set_handshaking on", setHandshaking},
   // screen commands
-  {"show_image", "Display the image on the screen.\nExample: MyBareOS> show_image", showImage},
+  {"clear_display", "Clear the screen display.\nExample: MyBareOS> clear_display", clearDisplay},
+  {"show_image", "Display the image on the screen, scroll vertically using W and S keys.\nExample: MyBareOS> show_image", showImage},
   {"show_video", "Display the video on the screen.\nExample: MyBareOS> show_video", showVideo},
   {"show_team_info", "Display team members' names on the screen.\nExample: MyBareOS> show_team_info", showTeamInfo},
   {"start_game", "Start the game.\nExample: MyBareOS> start_game", startGame}
@@ -110,7 +111,7 @@ void displayAllCommands(char *args)
   }
 }
 
-void clearScreen(char *args){
+void clearCLI(char *args){
   printf("\033[2J\033[1;1H");
 }
 
@@ -282,6 +283,10 @@ void drawCharacter(char ch, int x, int y, unsigned int attr) {
   drawGlyph(character, ch, 'A', x, y, attr);  // Use 'A' as the base character
 }
 
+void clearDisplay(char *args){
+  drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
+}
+
 void showImage(char *args) {
   // If necessary, load the image based on args or use a predefined image
   drawImage(large_img, currentXOffset, currentYOffset, IMG_WIDTH, IMG_HEIGHT);
@@ -311,7 +316,6 @@ void showImage(char *args) {
 
 void showVideo(char *args) {
   for (int i = 0; i < VIDEO_FRAMES_LENGTH; i++) {
-    drawRectARGB32(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00000000, 1);
     drawImage(videoBitmapArr[i], 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
     wait_msec(50000);
   }

@@ -483,6 +483,7 @@ void gameLoop() {
 
         // Check for game over
         if (!player.active && player.hp <= 0) {
+            drawString(SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 - 50, "GAME OVER", 0xFFFFFFFF, 4);
             printf("Game Over!\n");
             break;
         }

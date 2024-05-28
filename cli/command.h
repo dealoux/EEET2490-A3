@@ -1,7 +1,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#define COMMAND_COUNT 14
+#define COMMAND_COUNT 15
 #define COLOR_COUNT 8
 
 // Function type for command handlers
@@ -28,7 +28,7 @@ extern ColorMap colorMappings[COLOR_COUNT];
 const char *findTextColor(const char *colorStr);
 const char *findAsciiBgColor(const char *colorStr);
 void displayAllCommands(char *args);
-void clearScreen(char *args);
+void clearCLI(char *args);
 void setConsoleColor(char *args);
 void displayBoardInfo(char *args);
 
@@ -39,7 +39,8 @@ void setStopBits(char *args);
 void setParity(char *args);
 void setHandshaking(char *args);
 
-// screen related commands
+// display related commands
+void clearDisplay(char *args);
 void showImage(char *args);
 void showVideo(char *args);
 void showTeamInfo(char *args);
