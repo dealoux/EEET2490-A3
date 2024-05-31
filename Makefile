@@ -14,25 +14,25 @@ all: clean kernel8.img run
 
 # Ensure boot.o is built separately
 $(BUILD_DIR)/boot.o: $(SRC_DIR)/boot.s
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 
 # Build UART, SRC, CLI, and GAME directories
 $(BUILD_DIR)/%.o: $(UART_DIR)/%.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(CLI_DIR)/%.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(GAME_DIR)/%.c
-	aarch64-linux-gnu-gcc $(GCCFLAGS) -c $< -o $@
+	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 
 # Link all object files into the final kernel image
 kernel8.img: $(BUILD_DIR)/boot.o $(OFILES)
-	aarch64-linux-gnu-ld -nostdlib $^ -T $(SRC_DIR)/link.ld -o $(BUILD_DIR)/kernel8.elf
-	aarch64-linux-gnu-objcopy -O binary $(BUILD_DIR)/kernel8.elf kernel8.img
+	aarch64-none-elf-ld -nostdlib $^ -T $(SRC_DIR)/link.ld -o $(BUILD_DIR)/kernel8.elf
+	aarch64-none-elf-objcopy -O binary $(BUILD_DIR)/kernel8.elf kernel8.img
 
 clean:
 	rm -rf $(BUILD_DIR)/*.o $(BUILD_DIR)/kernel8.elf *.img
